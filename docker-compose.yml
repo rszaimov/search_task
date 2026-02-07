@@ -6,6 +6,7 @@ services:
     depends_on:
       - db
       - redis
+      - elasticsearch
 
   nginx:
     image: nginx:alpine
@@ -24,6 +25,23 @@ services:
       MYSQL_ROOT_PASSWORD: root
     ports:
       - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.11.1
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=false
+      - ES_JAVA_OPTS=-Xms512m -Xmx512m
+    ports:
+      - "9200:9200"
+    volumes:
+      - es_data:/usr/share/elasticsearch/data
 
   redis:
     image: redis:alpine
+
+volumes:
+  mysql_data:
+  es_data:
