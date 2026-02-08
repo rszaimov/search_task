@@ -12,6 +12,11 @@ docker-compose up -d
 # Wait for services to be ready (especially Elasticsearch takes ~30-60 seconds)
 docker-compose ps
 # All services should show "Up"
+
+# Fix permissions (first time only)
+docker-compose exec app chown -R www-data:www-data /var/www/html/storage /var/www/html/bootstrap/cache
+docker-compose exec app chmod -R 775 /var/www/html/storage /var/www/html/bootstrap/cache
+```
 ```
 
 ### 2. Install Dependencies
