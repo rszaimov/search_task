@@ -1,0 +1,84 @@
+<?php
+
+namespace Tests\Unit;
+
+use Tests\TestCase;
+use App\Services\SearchService;
+use Illuminate\Foundation\Testing\RefreshDatabase;
+
+class SearchServiceTest extends TestCase
+{
+    use RefreshDatabase;
+
+    private SearchService $searchService;
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+        $this->searchService = new SearchService();
+    }
+
+    public function test_search_with_keyword_returns_results()
+    {
+        $result = $this->searchService->search('sneakers');
+
+        $this->assertGreaterThan(0, $result['total']);
+        $this->assertNotEmpty($result['data']);
+    }
+
+    public function test_search_with_country_filter()
+    {
+        $result = $this->searchService->search('shoes', ['country_iso' => 'US']);
+
+        foreach ($result['data'] as $ad) {
+            $this->assertEquals('US', $ad['country_iso']);
+        }
+    }
+
+    public function test_search_with_start_date_filter()
+    {
+        $result = $this->searchService->search('running', [
+            'start_date' => '2026-01-10'
+        ]);
+
+        foreach ($result['data'] as $ad) {
+            $this->assertGreaterThanOrEqual(
+                '2026-01-10',
+                $ad['start_date']
+            );
+        }
+    }
+
+    public function test_search_with_multiple_filters()
+    {
+        $result = $this->searchService->search('fitness', [
+            'country_iso' => 'US',
+            'start_date' => '2026-01-01'
+        ]);
+
+        foreach ($result['data'] as $ad) {
+            $this->assertEquals('US', $ad['country_iso']);
+            $this->assertGreaterThanOrEqual('2026-01-01', $ad['start_date']);
+        }
+    }
+
+    public function test_fuzzy_search_handles_typos()
+    {
+        //Search with typo
+        $typoResults = $this->searchService->search('snakers'); // Missing 'e'
+        
+        //Should still find "sneakers"
+        $this->assertGreaterThan(0, $typoResults['total']);
+    }
+
+    public function test_no_results_returns_empty_array()
+    {
+        // Search for something that definitely doesn't exist
+        $result = $this->searchService->search('fgfdgdfgsdgjsdgjdggdf');
+
+        $this->assertEquals(0, $result['total']);
+        $this->assertEmpty($result['data']);
+        $this->assertEquals(0, $result['last_page']);
+    }
+   
+}
