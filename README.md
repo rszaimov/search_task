@@ -1,59 +1,250 @@
-<p align="center"><a href="https://laravel.com" target="_blank"><img src="https://raw.githubusercontent.com/laravel/art/master/logo-lockup/5%20SVG/2%20CMYK/1%20Full%20Color/laravel-logolockup-cmyk-red.svg" width="400" alt="Laravel Logo"></a></p>
 
-<p align="center">
-<a href="https://github.com/laravel/framework/actions"><img src="https://github.com/laravel/framework/workflows/tests/badge.svg" alt="Build Status"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/dt/laravel/framework" alt="Total Downloads"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/v/laravel/framework" alt="Latest Stable Version"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/l/laravel/framework" alt="License"></a>
-</p>
+---
 
-## About Laravel
+## Quick Start
 
-Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:
+### 1. Start Docker Services
 
-- [Simple, fast routing engine](https://laravel.com/docs/routing).
-- [Powerful dependency injection container](https://laravel.com/docs/container).
-- Multiple back-ends for [session](https://laravel.com/docs/session) and [cache](https://laravel.com/docs/cache) storage.
-- Expressive, intuitive [database ORM](https://laravel.com/docs/eloquent).
-- Database agnostic [schema migrations](https://laravel.com/docs/migrations).
-- [Robust background job processing](https://laravel.com/docs/queues).
-- [Real-time event broadcasting](https://laravel.com/docs/broadcasting).
+```bash
+# Start all containers (MySQL, Elasticsearch, Redis, PHP, Nginx)
+docker-compose up -d
 
-Laravel is accessible, powerful, and provides tools required for large, robust applications.
+# Wait for services to be ready (especially Elasticsearch takes ~30-60 seconds)
+docker-compose ps
+# All services should show "Up"
+```
 
-## Learning Laravel
+### 2. Install Dependencies
 
-Laravel has the most extensive and thorough [documentation](https://laravel.com/docs) and video tutorial library of all modern web application frameworks, making it a breeze to get started with the framework. You can also check out [Laravel Learn](https://laravel.com/learn), where you will be guided through building a modern Laravel application.
+```bash
+# Install PHP packages
+docker-compose exec app composer install
+```
 
-If you don't feel like reading, [Laracasts](https://laracasts.com) can help. Laracasts contains thousands of video tutorials on a range of topics including Laravel, modern PHP, unit testing, and JavaScript. Boost your skills by digging into our comprehensive video library.
+### 3. Configure Environment
 
-## Laravel Sponsors
+```bash
+# Copy environment file (already configured for Docker)
+cp .env.example .env
 
-We would like to extend our thanks to the following sponsors for funding Laravel development. If you are interested in becoming a sponsor, please visit the [Laravel Partners program](https://partners.laravel.com).
+# Generate application key
+docker-compose exec app php artisan key:generate
+```
 
-### Premium Partners
+The `.env` file is pre-configured with correct Docker service names:
+- `DB_HOST=db` (MySQL container)
+- `REDIS_HOST=redis` (Redis container)
+- `ELASTICSEARCH_HOST=elasticsearch:9200` (Elasticsearch container)
 
-- **[Vehikl](https://vehikl.com)**
-- **[Tighten Co.](https://tighten.co)**
-- **[Kirschbaum Development Group](https://kirschbaumdevelopment.com)**
-- **[64 Robots](https://64robots.com)**
-- **[Curotec](https://www.curotec.com/services/technologies/laravel)**
-- **[DevSquad](https://devsquad.com/hire-laravel-developers)**
-- **[Redberry](https://redberry.international/laravel-development)**
-- **[Active Logic](https://activelogic.com)**
+### 4. Set Up Database
 
-## Contributing
+```bash
+# Run migrations
+docker-compose exec app php artisan migrate
 
-Thank you for considering contributing to the Laravel framework! The contribution guide can be found in the [Laravel documentation](https://laravel.com/docs/contributions).
+# Seed database with sample data (50 brands, 5000 ads)
+docker-compose exec app php artisan db:seed
+```
 
-## Code of Conduct
+### 5. Set Up Elasticsearch
 
-In order to ensure that the Laravel community is welcoming to all, please review and abide by the [Code of Conduct](https://laravel.com/docs/contributions#code-of-conduct).
+```bash
+# Create Elasticsearch index
+docker-compose exec app php artisan es:setup
 
-## Security Vulnerabilities
+# Index all data from database to Elasticsearch
+docker-compose exec app php artisan es:reindex
+```
 
-If you discover a security vulnerability within Laravel, please send an e-mail to Taylor Otwell via [taylor@laravel.com](mailto:taylor@laravel.com). All security vulnerabilities will be promptly addressed.
+### 6. Verify Setup
 
-## License
+```bash
+# Check Elasticsearch has data
+curl http://localhost:9200/ads/_count
+# Should return: {"count":5000,...}
 
-The Laravel framework is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).
+# Test the search API
+curl "http://localhost:8080/api/search?q=sneakers"
+# Should return JSON with search results
+```
+
+### 8. Access the Application
+
+- **API Endpoint**: http://localhost:8080/api/search
+- **Elasticsearch**: http://localhost:9200
+- **MySQL**: localhost:3306 (user: root, password: root, database: laravel)
+
+---
+
+
+---
+
+## API Documentation
+
+### Search Endpoint
+
+**Endpoint:** `GET /api/search`
+
+**Query Parameters:**
+
+| Parameter | Type | Required | Description | Example |
+|-----------|------|----------|-------------|---------|
+| `q` | string | Yes | Search keyword (typo-tolerant) | `sneakers` |
+| `country_iso` | string | No | 2-letter country code (uppercase) | `US` |
+| `start_date` | string | No | Filter ads starting on/after date (YYYY-MM-DD) | `2026-01-01` |
+| `page` | integer | No | Page number (default: 1) | `2` |
+| `per_page` | integer | No | Results per page (default: 20, max: 100) | `10` |
+
+**Example Requests:**
+
+```bash
+# Basic search
+curl "http://localhost:8080/api/search?q=sneakers"
+
+# With country filter
+curl "http://localhost:8080/api/search?q=running&country_iso=US"
+
+# With start date filter
+curl "http://localhost:8080/api/search?q=shoes&start_date=2026-01-01"
+
+# With pagination
+curl "http://localhost:8080/api/search?q=nike&page=2&per_page=10"
+
+# All filters combined
+curl "http://localhost:8080/api/search?q=fitness&country_iso=US&start_date=2026-01-01&page=1&per_page=20"
+```
+
+**Success Response (200 OK):**
+
+```json
+{
+  "data": [
+    {
+      "id": 123,
+      "brand_id": 1,
+      "brand_name": "Nike",
+      "title": "Nike running shoes",
+      "keywords": "running, shoes, athletic, footwear",
+      "country_iso": "US",
+      "start_date": "2026-02-15",
+      "relevance_score": 0.850
+    }
+  ],
+  "total": 245,
+  "page": 1,
+  "per_page": 20,
+  "last_page": 13
+}
+```
+
+**Validation Error Response (422 Unprocessable Entity):**
+
+```json
+{
+  "message": "The q field is required.",
+  "errors": {
+    "q": ["The q field is required."]
+  }
+}
+```
+
+---
+
+## Running Tests
+
+### Run All Tests
+
+```bash
+docker-compose exec app php artisan test
+```
+
+### Run Specific Test Suites
+
+```bash
+# Unit tests only
+docker-compose exec app php artisan test --testsuite=Unit
+
+# Feature tests only
+docker-compose exec app php artisan test --testsuite=Feature
+
+# Specific test file
+docker-compose exec app php artisan test tests/Unit/SearchServiceTest.php
+```
+
+---
+
+
+---
+
+## Development
+
+### Common Commands
+
+```bash
+# Start all services
+docker-compose up -d
+
+# Stop all services
+docker-compose down
+
+# View logs
+docker-compose logs -f app
+docker-compose logs -f elasticsearch
+
+# Access app container shell
+docker-compose exec app bash
+
+# Run artisan commands
+docker-compose exec app php artisan [command]
+
+# Run composer commands
+docker-compose exec app composer [command]
+
+# Access MySQL
+docker-compose exec db mysql -uroot -proot laravel
+
+# Access Tinker (Laravel REPL)
+docker-compose exec app php artisan tinker
+```
+
+### Reindexing Elasticsearch
+
+When you make changes to ad data or Elasticsearch mappings:
+
+```bash
+# Recreate index
+docker-compose exec app php artisan es:setup
+
+# Reindex all data
+docker-compose exec app php artisan es:reindex
+```
+
+### Clearing Caches
+
+```bash
+# Clear all caches
+docker-compose exec app php artisan optimize:clear
+
+# Clear specific caches
+docker-compose exec app php artisan route:clear
+docker-compose exec app php artisan config:clear
+docker-compose exec app php artisan cache:clear
+docker-compose exec app php artisan view:clear
+```
+
+### Database Operations
+
+```bash
+# Reset and reseed database
+docker-compose exec app php artisan migrate:fresh --seed
+
+# Run specific seeder
+docker-compose exec app php artisan db:seed --class=BrandSeeder
+
+# Check database connection
+docker-compose exec app php artisan tinker
+>>> DB::connection()->getPdo();
+>>> \App\Models\Ad::count();
+```
+
+---
