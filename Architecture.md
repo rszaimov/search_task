@@ -257,7 +257,7 @@ These questions represent **fundamentally competing requirements**:
 
 ---
 
-### 2.2 Chosen Solution: Page-Based Offset Approximation
+### 2.2 Chosen Solution: Page-Based Offset Approximation (IMPROVED DURING IMPLEMENTATION see 2.5)
 
 We implement a **page-based approach with offset approximation** that prioritizes **efficiency and supports traditional numbered pagination** at the cost of perfect global brand ranking precision.
 
@@ -499,6 +499,61 @@ if ($iterations > 3) {
 }
 ```
 
+**Trade-off:**
+- We might re-fetch data if the previous pages had multi-iterations
+
+### 2.5 Critical Issue: Multi-Iteration Causes Duplicates with Pure Stateless
+
+**Problem discovered:** Page 1 might fetch offsets 0-600 to get 20 results. Page 2 starts at offset 200 (calculated), causing 80% overlap with page 1.
+
+**Solution:** Track actual ending offsets in continuation token.
+
+**Token structure:**
+```json
+{
+  "offsets": {"1": 600, "2": 1000},
+  "query_hash": "abc123"
+}
+```
+
+**Example:**
+```
+Iteration 1: Fetch 0-200, get 6 results (Nike, Adidas only)
+Iteration 2: Fetch 200-400, get 12 more results (Puma, Reebok, etc.)
+Iteration 3: Fetch 400-600, get 2 more results
+Total: 20 results from 3 batches
+
+Create token with information for the page exact ending offset
+Use the token in the request for page 2
+We see that page 1 has reached 600, so we start the fetching with offset 600
+```
+
+**Implementation**
+```php
+$state = $continuationToken 
+        ? $this->decodeToken($continuationToken) 
+        : ['offsets' => [], 'query_hash' => null];
+
+// Determine starting offset
+if (isset($state['offsets'][$page - 1])) {
+    // Sequential navigation or previously visited page
+    $offset = $state['offsets'][$page - 1];
+} else {
+    // First time visiting this page or jumped
+    $offset = ($page - 1) * config('search.fetch_size', 200);
+}
+```
+
+**Sequential Navigation:**
+```
+1→2→3: Each page uses previous page's exact ending offset
+Results: No duplicates, optimal performance
+```
+
+**Trade-off:** Path-dependent results (page 3 via 1→2→3 differs from 1→3).
+
+**Acceptable because:** Eliminates duplicates, rare edge case
+
 ---
 
 ### 2.5 Rejected Alternative Approaches
@@ -600,6 +655,36 @@ Subsequent requests: Array slice from Redis
 - High query repetition rate (>50% cache hit rate)
 - Acceptable staleness (auction-style ads, not time-sensitive)
 - Combine with offset-based for long-tail queries
+
+---
+
+#### Alternative 3: Pure Cursor-Based Pagination
+
+**Approach:** Use opaque cursor tokens exclusively, no page numbers.
+
+
+**How it handles the three questions:**
+
+| Question | Answer | Why |
+|----------|--------|-----|
+| Q1: Nike 4-6 globally? | ❌ No | Same offset-based fetching |
+| Q2: Handle changes? | ⚠️ Partial | Duplicates if new ads added |
+| Q3: Skip to page 50? | ❌ **NO** | **Must fetch previous 49 pages** |
+
+**Why rejected:**
+
+1. **Violates Q3 requirement** - Cannot "efficiently skip" to page 50
+   - User must go 1→2→3...→50 sequentially
+   - Requires 50 API requests to reach page 50
+   - Contradicts "skip past the first 49 pages"
+
+
+**When cursor-based WOULD be appropriate:**
+
+- Infinite scroll UIs
+- Apps with "Load More" pattern
+- APIs without page number pagination (has_more, next_cursor structure)
+
 
 ---
 

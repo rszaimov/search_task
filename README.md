@@ -115,8 +115,17 @@ curl "http://localhost:8080/api/search?q=shoes&start_date=2026-01-01"
 # With pagination
 curl "http://localhost:8080/api/search?q=nike&page=2&per_page=10"
 
+# Pagination with token 
+# Use the continuation_token from the previous page's response
+# Recommended for sequential navigation
+curl "http://localhost:8080/api/search?q=sneakers&page=2&token=eyJkYXRhIjp7Im9mZnNldHMiOnsiMSI6NjAwfSwicXVlcnlfaGFzaCI6ImFiYzEyMyJ9LCJzaWciOiIuLi4iLCJ2ZXIiOjF9"
+
+
 # All filters combined
 curl "http://localhost:8080/api/search?q=fitness&country_iso=US&start_date=2026-01-01&page=1&per_page=20"
+
+
+
 ```
 
 **Success Response (200 OK):**
@@ -138,7 +147,9 @@ curl "http://localhost:8080/api/search?q=fitness&country_iso=US&start_date=2026-
   "total": 245,
   "page": 1,
   "per_page": 20,
-  "last_page": 13
+  "last_page": 13,
+  "continuation_token": "...",
+  "has_more": true
 }
 ```
 
