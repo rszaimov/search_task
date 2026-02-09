@@ -22,7 +22,7 @@ class SearchServiceTest extends TestCase
     {
         $result = $this->searchService->search('sneakers');
 
-        $this->assertGreaterThan(0, $result['total']);
+        $this->assertGreaterThan(0, $result['total_pages']);
         $this->assertNotEmpty($result['data']);
     }
 
@@ -68,7 +68,7 @@ class SearchServiceTest extends TestCase
         $typoResults = $this->searchService->search('snakers'); // Missing 'e'
         
         //Should still find "sneakers"
-        $this->assertGreaterThan(0, $typoResults['total']);
+        $this->assertGreaterThan(0, count($typoResults['data']));
     }
 
     public function test_no_results_returns_empty_array()
@@ -76,9 +76,9 @@ class SearchServiceTest extends TestCase
         // Search for something that definitely doesn't exist
         $result = $this->searchService->search('fgfdgdfgsdgjsdgjdggdf');
 
-        $this->assertEquals(0, $result['total']);
         $this->assertEmpty($result['data']);
-        $this->assertEquals(0, $result['last_page']);
+        $this->assertEquals(0, $result['total_pages']);
+        $this->assertFalse($result['has_more']);
     }
    
 }

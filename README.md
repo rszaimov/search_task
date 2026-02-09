@@ -144,10 +144,9 @@ curl "http://localhost:8080/api/search?q=fitness&country_iso=US&start_date=2026-
       "relevance_score": 0.850
     }
   ],
-  "total": 245,
-  "page": 1,
+  "current_page": 2,
   "per_page": 20,
-  "last_page": 13,
+  "total_pages": 2,
   "continuation_token": "...",
   "has_more": true
 }

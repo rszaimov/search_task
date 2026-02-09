@@ -38,7 +38,7 @@ class SearchController extends Controller
 
         $keyword = $validated['q'];
         $filters = array_filter([
-            'country' => $validated['country_iso'] ?? null,
+            'country_iso' => $validated['country_iso'] ?? null,
             'start_date' => $validated['start_date'] ?? null,
         ]);
         $page = $validated['page'] ?? 1;
