@@ -9,11 +9,13 @@ class SearchService
 {
     private $client;
     private string $indexName;
+    private CacheService $cacheService;
 
-    public function __construct()
+    public function __construct(CacheService $cacheService)
     {
         $this->client = app('elasticsearch');
         $this->indexName = config('elasticsearch.indices.ads.name');
+        $this->cacheService = $cacheService;
     }
 
     /**
@@ -65,6 +67,36 @@ class SearchService
             // First time visiting this page or jumped
             $offset = ($page - 1) * $fetchSize;
             $navigationType = 'calculated';
+        }
+
+        $cache_hit = false;
+
+        // Check cache
+        if (config('search.cache_ttl', 0) > 0) {
+            $cachedAds = $this->cacheService->getSearchResults(
+                $keyword, 
+                $filters, 
+                $page, 
+                $perPage,
+                $offset  // Include offset in cache key
+            );
+            
+            if ($cachedAds !== null) {
+                // Rebuild response with fresh metadata
+                $nextToken = $this->encodeToken($state);
+                
+                $response = [
+                    'data' => $cachedAds,
+                    'current_page' => $page,
+                    'per_page' => $perPage,
+                    'total_pages' => $this->estimateTotalPages($keyword, $filters, $fetchSize),
+                    'continuation_token' => $nextToken,
+                    'has_more' => count($cachedAds) === $perPage,
+                    'cache_hit' => true,
+                ];
+                
+                return $response;
+            }
         }
         
         // Load brand limits from database (with caching)
@@ -142,14 +174,29 @@ class SearchService
         // Encode continuation token
         $nextToken = $this->encodeToken($state);
         
-        return [
+        $response = [
             'data' => $results,
             'current_page' => $page,
             'per_page' => $perPage,
             'total_pages' => $this->estimateTotalPages($keyword, $filters, $fetchSize),
             'continuation_token' => $nextToken,
             'has_more' => count($results) === $perPage,
+            'cache_hit' => false,
         ];
+
+        // Cache the ads data 
+        if (config('search.cache_ttl', 0) > 0) {
+            $this->cacheService->cacheSearchResults(
+                $keyword, 
+                $filters, 
+                $page, 
+                $perPage, 
+                $results,
+                $startOffset
+            );
+        }
+
+        return $response;
     }
     
     /**
