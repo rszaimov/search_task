@@ -52,6 +52,9 @@ class SearchService
         } else {
             $state['query_hash'] = $currentQueryHash;
         }
+
+        $baseFetchSize = config('search.fetch_size', 200);
+        $fetchSize = $this->calculateFetchSize($perPage, $baseFetchSize);
         
         // Determine starting offset
         if (isset($state['offsets'][$page - 1])) {
@@ -60,7 +63,7 @@ class SearchService
             $navigationType = 'sequential';
         } else {
             // First time visiting this page or jumped
-            $offset = ($page - 1) * config('search.fetch_size', 200);
+            $offset = ($page - 1) * $fetchSize;
             $navigationType = 'calculated';
         }
         
@@ -70,7 +73,6 @@ class SearchService
         
         $results = [];
         $thisPageCounts = [];
-        $fetchSize = config('search.fetch_size', 200);
         $maxIterations = config('search.max_iterations', 10);
         $iterationCount = 0;
         $startOffset = $offset; // Remember where we started
@@ -169,6 +171,37 @@ class SearchService
             
             return $brands;
         });
+    }
+
+   /**
+     * Calculate optimal fetch size based on per_page
+     * 
+     * Larger per_page values need larger fetch sizes to reduce multi-iteration overhead.
+     * 
+     * @param int $perPage Desired results per page
+     * @param int $baseFetchSize Base fetch size from config
+     * @return int Calculated fetch size
+     */
+    private function calculateFetchSize(int $perPage, int $baseFetchSize): int
+    {
+        // Strategy: Fetch enough to get desired results after brand capping
+        // Multiplier approach:
+        // - For per_page = 20: multiplier = 10 (fetch 200)
+        // - For per_page = 50: multiplier = 10 (fetch 500)
+        // - For per_page = 100: multiplier = 10 (fetch 1000)
+        
+        $multiplier = 10;
+        $calculatedSize = $perPage * $multiplier;
+        
+        // Use whichever is larger: calculated or base
+        // This is just in case of concentrated brands results
+        $fetchSize = max($calculatedSize, $baseFetchSize);
+        
+        // Cap at reasonable maximum to avoid memory issues
+        $maxFetchSize = 2000;
+        $fetchSize = min($fetchSize, $maxFetchSize);
+        
+        return $fetchSize;
     }
     
     /**
