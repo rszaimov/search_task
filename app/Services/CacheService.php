@@ -232,25 +232,6 @@ class CacheService
     }
     
     /**
-     * Invalidate searches by brand
-     * 
-     * When a brand's ads change, invalidate all searches
-     * (since we can't know which keywords would match)
-     * 
-     * @param int $brandId
-     */
-    public function invalidateByBrand(int $brandId): void
-    {
-        // Since we can't know which searches included this brand,
-        // we invalidate all searches (conservative approach)
-        $this->invalidateAllSearches();
-        
-        Log::info('Search cache invalidated for brand', [
-            'brand_id' => $brandId
-        ]);
-    }
-    
-    /**
      * Invalidate searches by ad
      * 
      * When a specific ad changes, invalidate relevant searches

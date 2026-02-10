@@ -506,6 +506,8 @@ class SearchService
     public function invalidateBrandLimitsCache(): void
     {
         Cache::forget('brand_limits');
+        //also invalidate all cached searches
+        $this->cacheService->invalidateAllSearches();
         Log::info('Brand limits cache invalidated');
     }
 }
