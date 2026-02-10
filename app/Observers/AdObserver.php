@@ -90,13 +90,13 @@ class AdObserver
             $document = [
                 'id' => $ad->id,
                 'brand_id' => $ad->brand_id,
-                'brand_name' => $ad->brand?->name ?? 'Unknown',
+                'brand_name' => $ad->brand->name,
                 'title' => $ad->title,
                 'keywords' => $ad->keywords,
                 'country_iso' => $ad->country_iso,
-                'start_date' => $ad->start_date,
-                'relevance_score' => $ad->relevance_score,
-                'created_at' => $ad->created_at?->toIso8601String(),
+                'start_date' => $ad->start_date->format('Y-m-d'),
+                'relevance_score' => (float)$ad->relevance_score,
+                'created_at' => $ad->created_at->toIso8601String(),
             ];
 
             // Index document
@@ -176,6 +176,7 @@ class AdObserver
                     'keywords' => $original['keywords'] ?? $ad->keywords,
                     'country_iso' => $original['country_iso'] ?? $ad->country_iso,
                     'start_date' => $original['start_date'] ?? $ad->start_date,
+                    'relevance_score' => $original['relevance_score'] ?? $ad->relevance_score,
                 ];
 
                 // Only invalidate if something relevant changed
