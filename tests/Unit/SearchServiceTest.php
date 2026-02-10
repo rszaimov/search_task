@@ -3,6 +3,7 @@
 namespace Tests\Unit;
 
 use Tests\TestCase;
+use App\Services\CacheService;
 use App\Services\SearchService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 
@@ -15,7 +16,8 @@ class SearchServiceTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
-        $this->searchService = new SearchService();
+        $cacheService = new CacheService();
+        $this->searchService = new SearchService($cacheService);
     }
 
     public function test_search_with_keyword_returns_results()

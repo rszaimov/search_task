@@ -69,8 +69,6 @@ class SearchService
             $navigationType = 'calculated';
         }
 
-        $cache_hit = false;
-
         // Check cache
         if (config('search.cache_ttl', 0) > 0) {
             $cachedAds = $this->cacheService->getSearchResults(
@@ -92,7 +90,6 @@ class SearchService
                     'total_pages' => $this->estimateTotalPages($keyword, $filters, $fetchSize),
                     'continuation_token' => $nextToken,
                     'has_more' => count($cachedAds) === $perPage,
-                    'cache_hit' => true,
                 ];
                 
                 return $response;
@@ -181,7 +178,6 @@ class SearchService
             'total_pages' => $this->estimateTotalPages($keyword, $filters, $fetchSize),
             'continuation_token' => $nextToken,
             'has_more' => count($results) === $perPage,
-            'cache_hit' => false,
         ];
 
         // Cache the ads data 
