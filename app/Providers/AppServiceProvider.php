@@ -4,6 +4,7 @@ namespace App\Providers;
 
 use App\Models\Ad;
 use App\Models\Brand;
+use App\Observers\AdObserver;
 use App\Observers\BrandObserver;
 use Illuminate\Support\ServiceProvider;
 
