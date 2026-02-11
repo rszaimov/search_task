@@ -161,6 +161,7 @@ class AdObserver
                 'keywords' => $ad->keywords,
                 'country_iso' => $ad->country_iso,
                 'start_date' => $ad->start_date,
+                'relevance_score' => $ad->relevance_score,
             ];
 
             // Invalidate for current data
